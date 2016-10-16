@@ -1,0 +1,11 @@
+{
+  "firstName":"John",
+  "lastName":"Cena",
+  "age":39,
+  "direction":
+    {
+      "fullAddress": "471 Harrison Avenue, Tedrow, Delaware",
+      "zipCode": 2355
+    },
+  "phoneNumbers":["+1 (984) 400-3912","+1 (878) 469-3989","+1 (945) 457-3362"]
+}
