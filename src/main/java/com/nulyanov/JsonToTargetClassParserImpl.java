@@ -16,11 +16,13 @@ import java.util.Map;
 
 public class JsonToTargetClassParserImpl implements JsonToTargetClassParser {
 
-    private ClassMappingHolder classMappingHolder;
+    private Class targetClass;
+    private Map<String, String> jsonPathToClassProperties;
 
     @Override
     public Object parseObjectFromJson(Class objectClass, Map<String, String> jsonPathToClassProperties, String pathToJson) {
-        classMappingHolder = new ClassMappingHolderImpl(objectClass, jsonPathToClassProperties);
+        this.targetClass = objectClass;
+        this.jsonPathToClassProperties = jsonPathToClassProperties;
 
         try (JsonParser jsonParser = new JsonFactory().createParser(new File(pathToJson))){
             return getObject(jsonParser, objectClass);
@@ -51,7 +53,7 @@ public class JsonToTargetClassParserImpl implements JsonToTargetClassParser {
         List<Field> fields = Arrays.asList(objectClass.getDeclaredFields());
         while(jsonParser.nextToken() != JsonToken.END_OBJECT){
             String currentName = jsonParser.getCurrentName();
-            String mappedName = classMappingHolder.getMappedName(currentName, objectClass);
+            String mappedName = objectClass == this.targetClass ? getMappedName(currentName) : currentName;
 
             if (stringIsFieldName(fields, mappedName)){
                 jsonParser.nextToken();
@@ -116,7 +118,7 @@ public class JsonToTargetClassParserImpl implements JsonToTargetClassParser {
      * @throws InstantiationException
      * @throws NoSuchFieldException
      */
-    private Object getArray(JsonParser jsonParser, Class componentType) throws IOException, IllegalAccessException, ClassNotFoundException, InstantiationException, NoSuchFieldException {
+    private <T> Object getArray(JsonParser jsonParser, Class componentType) throws IOException, IllegalAccessException, ClassNotFoundException, InstantiationException, NoSuchFieldException {
         List<Object> list = new LinkedList<>();
 
         while(jsonParser.nextToken() != JsonToken.END_ARRAY){
@@ -124,22 +126,8 @@ public class JsonToTargetClassParserImpl implements JsonToTargetClassParser {
             list.add(value);
         }
 
-        return buildArray(componentType, list);
-    }
-
-    /**
-     * Builds array with specified component type
-     * @param componentType type of array values
-     * @param list list of values
-     * @return built array filled with values from source
-     */
-    private Object buildArray(Class componentType, List<Object> list) {
-        Object target = Array.newInstance(componentType, list.size());
-        int index = 0;
-        for (Object value: list){
-            Array.set(target, index++, value);
-        }
-        return target;
+        T[] target = (T[]) Array.newInstance(componentType, list.size());
+        return list.toArray(target);
     }
 
     /**
@@ -157,7 +145,7 @@ public class JsonToTargetClassParserImpl implements JsonToTargetClassParser {
             return jsonParser.getText();
         }
         else if (JsonToken.VALUE_NUMBER_INT == currentToken){
-           return jsonParser.getIntValue();
+            return jsonParser.getIntValue();
         }
         else if (JsonToken.VALUE_NUMBER_FLOAT == currentToken){
             return jsonParser.getFloatValue();
@@ -166,5 +154,18 @@ public class JsonToTargetClassParserImpl implements JsonToTargetClassParser {
             return jsonParser.getBooleanValue();
         }
         return null;
+    }
+
+    /**
+     * Converts original property name to mapped one
+     * @param property name of property from json
+     * @return mapped name of property or the same name if there is no mapping for this property
+     */
+    private String getMappedName(String property) {
+        String mappedFieldName = jsonPathToClassProperties.get(property);
+        if (mappedFieldName != null) {
+            return mappedFieldName;
+        }
+        return property;
     }
 }
